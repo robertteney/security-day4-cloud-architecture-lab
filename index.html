@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cloud Architecture PBQ Simulation</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --card-border: #cbd5e1;
+      --primary: #0f172a;
+      --accent: #0284c7;
+      --accent-hover: #0369a1;
+      --text: #1e293b;
+      --muted: #64748b;
+      --success: #15803d;
+      --danger: #b91c1c;
+      --warning: #b45309;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      display: flex;
+      height: 100vh;
+      background-color: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    /* Sidebar Area */
+    .sidebar {
+      width: 320px;
+      min-width: 300px;
+      background-color: var(--card);
+      border-right: 1px solid var(--card-border);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      overflow-y: auto;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      background-color: #e0f2fe;
+      color: var(--accent);
+      border: 1px solid #7dd3fc;
+    }
+
+    .sidebar h2 {
+      font-size: 1.05rem;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 6px;
+    }
+
+    .sidebar p, .sidebar li {
+      font-size: 0.88rem;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .rule-box {
+      background-color: #f1f5f9;
+      border-left: 4px solid var(--accent);
+      padding: 12px;
+      border-radius: 0 6px 6px 0;
+      font-size: 0.85rem;
+      color: #334155;
+    }
+
+    /* Legend Component Bank */
+    .component-bank {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .draggable-card {
+      background: #ffffff;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--primary);
+      cursor: grab;
+      user-select: none;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .draggable-card:hover {
+      border-color: var(--accent);
+      background-color: #f0f9ff;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.08);
+    }
+
+    .draggable-card.dragging {
+      opacity: 0.5;
+    }
+
+    /* Workspace */
+    .main-workspace {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    header {
+      background-color: var(--card);
+      padding: 16px 28px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      font-size: 1.25rem;
+      color: var(--primary);
+    }
+
+    .workspace-grid {
+      display: flex;
+      flex: 1;
+      position: relative;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .topology-card {
+      position: relative;
+      width: 100%;
+      max-width: 960px;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+    }
+
+    /* Dropzones Overlay Positions - Precise Pixel Offsets */
+    .dropzone {
+      position: absolute;
+      width: 140px;
+      height: 38px;
+      border: 2px dashed #94a3b8;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--muted);
+      z-index: 10;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .dropzone:hover {
+      border-color: var(--accent);
+      background-color: #e0f2fe;
+    }
+
+    .dropzone.filled {
+      border-style: solid;
+      border-color: var(--accent);
+      background-color: #f0f9ff;
+      color: var(--primary);
+    }
+
+    /* Calibrated Dropzone Coordinates - Zero Collisions */
+    #dz1 { top: 92px;  left: 410px; } /* Front Door WAF inside Public Subnet */
+    #dz2 { top: 162px; left: 250px; } /* Public LB 1 */
+    #dz3 { top: 162px; left: 570px; } /* Public LB 2 */
+    #dz4 { top: 282px; left: 410px; } /* Auto Scaling Group */
+    #dz5 { top: 372px; left: 230px; } /* App Instance 1 */
+    #dz6 { top: 372px; left: 410px; } /* App Instance 2 */
+    #dz7 { top: 372px; left: 590px; } /* App Instance 3 */
+    #dz8 { top: 487px; left: 410px; } /* Database Tier */
+
+    /* Interactive Subnet Selector - Positioned cleanly in header bar of Tier 2 */
+    .subnet-select-wrapper {
+      position: absolute;
+      top: 232px;
+      left: 45px;
+      z-index: 20;
+    }
+
+    .subnet-select-wrapper select {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--accent);
+      background: #ffffff;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--accent);
+      outline: none;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    /* Footer Toolbar */
+    .footer-bar {
+      padding: 16px 28px;
+      background-color: var(--card);
+      border-top: 1px solid var(--card-border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: background 0.15s;
+    }
+
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary { background: #e2e8f0; color: var(--text); }
+    .btn-secondary:hover { background: #cbd5e1; }
+
+    /* Centered Overlaid Dialog Modals */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(15, 23, 42, 0.4);
+      backdrop-filter: blur(2px);
+      z-index: 2000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-box {
+      position: relative;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      width: 640px;
+      max-width: 92vw;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 24px;
+      box-shadow: 0 20px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .explanation-item {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--card-border);
+      font-size: 0.88rem;
+      line-height: 1.55;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar Component Bank & Instructions -->
+  <aside class="sidebar">
+    <div>
+      <span class="badge">Cloud Architecture PBQ</span>
+      <h2 style="margin-top: 8px;">AWS / Azure VPC Design</h2>
+    </div>
+
+    <p>Construct a multi-tier resilient cloud network layout inside the Virtual Private Cloud (VPC). Ensure proper defense-in-depth placement for web inspection, traffic distribution, autoscaling, and database isolation.</p>
+
+    <h2>Available Components</h2>
+    <div class="component-bank" id="componentBank">
+      <!-- Dynamically Populated & Re-usable Drag Items -->
+    </div>
+
+    <div class="rule-box">
+      <strong>Instructions:</strong> Drag components from the bank into the target drop zones (`?`). Use the dropdown menu in the middle tier to select its logical classification (Public vs. Private Subnet).
+    </div>
+  </aside>
+
+  <!-- Main Workspace -->
+  <main class="main-workspace">
+    <header>
+      <h1>Cloud Infrastructure & Subnet Architecture Lab</h1>
+      <span style="font-size: 0.85rem; font-weight: 600; color: var(--muted);" id="progressTracker">Filled: 0 / 8 Zones</span>
+    </header>
+
+    <div class="workspace-grid">
+      <div class="topology-card">
+        
+        <!-- Interactive Subnet Classification Dropdown -->
+        <div class="subnet-select-wrapper">
+          <select id="middleSubnetSelect">
+            <option value="">-- Select Middle Subnet Type --</option>
+            <option value="Public Subnet">Public Subnet (DMZ)</option>
+            <option value="Private Subnet">Private Subnet (App Tier)</option>
+          </select>
+        </div>
+
+        <!-- Expanded Clean Vector Canvas (560px height) -->
+        <svg viewBox="0 0 920 560" width="100%" height="auto">
+          <defs>
+            <linearGradient id="vpcGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#ffffff"/>
+              <stop offset="100%" stop-color="#f8fafc"/>
+            </linearGradient>
+            <linearGradient id="pubGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#f0f9ff"/>
+              <stop offset="100%" stop-color="#e0f2fe"/>
+            </linearGradient>
+            <linearGradient id="privGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#f8fafc"/>
+              <stop offset="100%" stop-color="#f1f5f9"/>
+            </linearGradient>
+            <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+              <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.08"/>
+            </filter>
+            <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#0284c7" />
+            </marker>
+          </defs>
+
+          <!-- Outer VPC Boundary -->
+          <rect x="15" y="15" width="890" height="530" rx="10" fill="url(#vpcGrad)" stroke="#0284c7" stroke-width="2.5"/>
+          <text x="35" y="42" font-size="13" font-weight="800" fill="#0f172a" letter-spacing="1">☁️ VIRTUAL PRIVATE CLOUD (VPC - 10.0.0.0/16)</text>
+
+          <!-- External IGW Edge Anchor -->
+          <g transform="translate(740, 22)" filter="url(#shadow)">
+            <rect width="145" height="28" rx="6" fill="#ffffff" stroke="#0284c7" stroke-width="1.5"/>
+            <text x="72" y="18" text-anchor="middle" font-size="10" font-weight="800" fill="#0284c7">🌐 Internet Gateway</text>
+          </g>
+
+          <!-- Tier 1: Public Web Subnet (Top) -->
+          <rect x="30" y="60" width="860" height="150" rx="8" fill="url(#pubGrad)" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="6,4"/>
+          <text x="45" y="82" font-size="11" font-weight="800" fill="#0369a1">PUBLIC SUBNET (Web Ingress - 10.0.1.0/24)</text>
+
+          <!-- Tier 2: Middle Application Subnet (Center) -->
+          <rect x="30" y="225" width="860" height="210" rx="8" fill="url(#privGrad)" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6,4"/>
+
+          <!-- Tier 3: Private Database Subnet (Bottom) -->
+          <rect x="30" y="450" width="860" height="80" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="6,4"/>
+          <text x="45" y="472" font-size="11" font-weight="800" fill="#475569">PRIVATE SUBNET (Database Tier - 10.0.3.0/24)</text>
+
+          <!-- Connecting Traffic Arrows -->
+          <!-- IGW to WAF -->
+          <path d="M 812 50 L 812 111 L 550 111" fill="none" stroke="#0284c7" stroke-width="2" marker-end="url(#arrow)" />
+
+          <!-- WAF to Load Balancers -->
+          <path d="M 480 130 L 320 130 L 320 162" fill="none" stroke="#0284c7" stroke-width="2" marker-end="url(#arrow)" />
+          <path d="M 480 130 L 640 130 L 640 162" fill="none" stroke="#0284c7" stroke-width="2" marker-end="url(#arrow)" />
+
+          <!-- LBs to Autoscaling Group -->
+          <path d="M 320 200 L 320 250 L 480 250 L 480 282" fill="none" stroke="#0284c7" stroke-width="2" marker-end="url(#arrow)" />
+          <path d="M 640 200 L 640 250 L 480 250" fill="none" stroke="#0284c7" stroke-width="2" />
+
+          <!-- Autoscaling to Compute Instances -->
+          <path d="M 480 320 L 300 320 L 300 372" fill="none" stroke="#0284c7" stroke-width="2" marker-end="url(#arrow)" />
+          <line x1="480" y1="320" x2="480" y2="372" stroke="#0284c7" stroke-width="2" marker-end="url(#arrow)" />
+          <path d="M 480 320 L 660 320 L 660 372" fill="none" stroke="#0284c7" stroke-width="2" marker-end="url(#arrow)" />
+
+          <!-- Instances to Database Tier -->
+          <path d="M 300 410 L 300 460 L 480 460 L 480 487" fill="none" stroke="#0284c7" stroke-width="2" marker-end="url(#arrow)" />
+          <line x1="480" y1="410" x2="480" y2="487" stroke="#0284c7" stroke-width="2" />
+          <path d="M 660 410 L 660 460 L 480 460" fill="none" stroke="#0284c7" stroke-width="2" />
+        </svg>
+
+        <!-- Dropzone Overlays -->
+        <div class="dropzone" id="dz1" onclick="clearZone('dz1')">?</div>
+        <div class="dropzone" id="dz2" onclick="clearZone('dz2')">?</div>
+        <div class="dropzone" id="dz3" onclick="clearZone('dz3')">?</div>
+        <div class="dropzone" id="dz4" onclick="clearZone('dz4')">?</div>
+        <div class="dropzone" id="dz5" onclick="clearZone('dz5')">?</div>
+        <div class="dropzone" id="dz6" onclick="clearZone('dz6')">?</div>
+        <div class="dropzone" id="dz7" onclick="clearZone('dz7')">?</div>
+        <div class="dropzone" id="dz8" onclick="clearZone('dz8')">?</div>
+
+      </div>
+    </div>
+
+    <!-- Action Bar Footer -->
+    <div class="footer-bar">
+      <button class="btn btn-secondary" onclick="resetActivity()">Reset Activity</button>
+      <button class="btn btn-primary" onclick="submitAnswers()">Submit Architecture</button>
+    </div>
+  </main>
+
+  <!-- Evaluation Results Dialog Modal -->
+  <div class="modal-backdrop" id="scoreModal">
+    <div class="modal-box">
+      <h3 style="color: var(--primary); font-size: 1.15rem; margin-bottom: 12px;">Architecture Evaluation Summary</h3>
+      <div id="scoreHeader" style="font-size: 1.15rem; font-weight: 700; margin-bottom: 12px;"></div>
+      <div id="evaluationLog"></div>
+      <div class="modal-footer" style="margin-top: 16px;">
+        <button class="btn btn-primary" onclick="closeModal('scoreModal')">Close Analysis</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Component Master Catalog
+    const components = [
+      { id: 'WAF', label: '🛡️ WAF (Web Firewall)' },
+      { id: 'LB', label: '🔀 Load Balancer' },
+      { id: 'Autoscaling', label: '⚙️ Auto Scaling Group' },
+      { id: 'Instance', label: '💻 EC2 / App Instance' },
+      { id: 'Database', label: '🗄️ Database (RDS)' }
+    ];
+
+    // Ground Truth Solution Blueprint
+    const correctAnswers = {
+      dz1: 'WAF',
+      dz2: 'LB',
+      dz3: 'LB',
+      dz4: 'Autoscaling',
+      dz5: 'Instance',
+      dz6: 'Instance',
+      dz7: 'Instance',
+      dz8: 'Database',
+      dropdown: 'Private Subnet'
+    };
+
+    // User Placed Dropzone State
+    let userAssignments = {};
+    let activeDraggedId = null;
+
+    // Helper: Fisher-Yates Array Shuffle
+    function shuffle(array) {
+      let arr = [...array];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    // Render Side Bank (Infinite Non-Destructive Source)
+    function renderBank() {
+      const bank = document.getElementById('componentBank');
+      bank.innerHTML = '';
+
+      const shuffled = shuffle(components);
+      shuffled.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'draggable-card';
+        div.draggable = true;
+        div.dataset.id = item.id;
+        div.innerHTML = item.label;
+
+        div.addEventListener('dragstart', (e) => {
+          activeDraggedId = item.id;
+          div.classList.add('dragging');
+          e.dataTransfer.setData('text/plain', item.id);
+        });
+
+        div.addEventListener('dragend', () => {
+          div.classList.remove('dragging');
+          activeDraggedId = null;
+        });
+
+        bank.appendChild(div);
+      });
+    }
+
+    // Initialize Dropzones
+    function initDropzones() {
+      const dropzones = document.querySelectorAll('.dropzone');
+
+      dropzones.forEach(dz => {
+        dz.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          dz.classList.add('hovered');
+        });
+
+        dz.addEventListener('dragleave', () => {
+          dz.classList.remove('hovered');
+        });
+
+        dz.addEventListener('drop', (e) => {
+          e.preventDefault();
+          dz.classList.remove('hovered');
+
+          if (!activeDraggedId) return;
+
+          const comp = components.find(c => c.id === activeDraggedId);
+          if (comp) {
+            userAssignments[dz.id] = comp.id;
+            dz.textContent = comp.label;
+            dz.classList.add('filled');
+            updateTracker();
+          }
+        });
+      });
+    }
+
+    function clearZone(dzId) {
+      const dz = document.getElementById(dzId);
+      if (userAssignments[dzId]) {
+        delete userAssignments[dzId];
+        dz.textContent = '?';
+        dz.classList.remove('filled');
+        updateTracker();
+      }
+    }
+
+    function updateTracker() {
+      const count = Object.keys(userAssignments).length;
+      document.getElementById('progressTracker').textContent = `Filled: ${count} / 8 Zones`;
+    }
+
+    function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    function submitAnswers() {
+      let score = 0;
+      const totalPoints = 9;
+      let logs = [];
+
+      const explanationMap = {
+        dz1: 'Front-Door WAF must sit in the ingress path to inspect Layer 7 HTTP/HTTPS web traffic before reaching load balancers.',
+        dz2: 'Public Load Balancer distributes incoming web requests evenly across redundant availability zones.',
+        dz3: 'Public Load Balancer distributes incoming web requests evenly across redundant availability zones.',
+        dz4: 'Auto Scaling Group encapsulates application compute instances to dynamically adjust capacity based on load.',
+        dz5: 'Application EC2 Instances host business logic inside isolated subnet boundaries.',
+        dz6: 'Application EC2 Instances host business logic inside isolated subnet boundaries.',
+        dz7: 'Application EC2 Instances host business logic inside isolated subnet boundaries.',
+        dz8: 'Database (RDS) must be placed in the deepest private subnet to prevent direct internet exposure.',
+        dropdown: 'The middle tier containing Auto Scaling application instances must be classified as a Private Subnet (App Tier).'
+      };
+
+      // Check Dropzones (8 Pts)
+      for (let i = 1; i <= 8; i++) {
+        const dzId = `dz${i}`;
+        const placed = userAssignments[dzId];
+        const correct = correctAnswers[dzId];
+
+        if (placed === correct) {
+          score++;
+        } else {
+          logs.push(`<div class="explanation-item"><strong>Zone ${i}:</strong> Placed <code>${placed || 'Empty'}</code> (Expected: <strong>${correct}</strong>). ${explanationMap[dzId]}</div>`);
+        }
+      }
+
+      // Check Dropdown (1 Pt)
+      const selectVal = document.getElementById('middleSubnetSelect').value;
+      if (selectVal === correctAnswers.dropdown) {
+        score++;
+      } else {
+        logs.push(`<div class="explanation-item"><strong>Subnet Classification:</strong> Selected <code>${selectVal || 'Unclassified'}</code> (Expected: <strong>${correctAnswers.dropdown}</strong>). ${explanationMap.dropdown}</div>`);
+      }
+
+      const scoreHeader = document.getElementById('scoreHeader');
+      const evalLog = document.getElementById('evaluationLog');
+
+      scoreHeader.textContent = `Total Score: ${score} / ${totalPoints}`;
+      scoreHeader.style.color = score === totalPoints ? 'var(--success)' : 'var(--danger)';
+
+      if (score === totalPoints) {
+        evalLog.innerHTML = `<p style="color:var(--success); font-weight:bold; margin-bottom:12px;">Outstanding Blueprint! All cloud components, auto-scaling boundaries, and subnet classifications conform to AWS/Azure Security Best Practices.</p>`;
+      } else {
+        evalLog.innerHTML = logs.join('');
+      }
+
+      openModal('scoreModal');
+    }
+
+    function resetActivity() {
+      userAssignments = {};
+      
+      for (let i = 1; i <= 8; i++) {
+        const dz = document.getElementById(`dz${i}`);
+        dz.textContent = '?';
+        dz.classList.remove('filled');
+      }
+
+      document.getElementById('middleSubnetSelect').selectedIndex = 0;
+      updateTracker();
+      renderBank();
+      closeModal('scoreModal');
+    }
+
+    window.onload = function() {
+      renderBank();
+      initDropzones();
+      updateTracker();
+    };
+  </script>
+</body>
+</html>
